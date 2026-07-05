@@ -2,8 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
-	"os"
 	"path/filepath"
 )
 
@@ -22,31 +20,13 @@ func SaveNm(merge bool) (string, error) {
 		return "", fmt.Errorf("unexpected nickelmenu release asset name: expected KoboRoot.tgz, got %q", asset.Name)
 	}
 
-	resp, err := Get(asset.Url)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
 	if !merge {
-		f, err := os.Create(filepath.Join(Root, ".kobo", "KoboRoot.tgz"))
-		if err != nil {
-			return "", err
-		}
-		defer f.Close()
-		if _, err := io.Copy(f, resp.Body); err != nil {
-			return "", err
-		}
-		return "", nil
-	}
-	tmp, err := os.CreateTemp("", "nm-*.tgz")
-	if err != nil {
-		return "", fmt.Errorf("failed to make tmp dir: %w", err)
-	}
-	defer tmp.Close()
-
-	if _, err := io.Copy(tmp, resp.Body); err != nil {
+		_, err := saveArchive(asset.Url, filepath.Join(Root, ".kobo", "KoboRoot.tgz"), false)
 		return "", err
 	}
-	return tmp.Name(), nil
+	f, err := saveArchive(asset.Url, "nm-*.tgz", true)
+	if err != nil {
+		return "", err
+	}
+	return f, nil
 }

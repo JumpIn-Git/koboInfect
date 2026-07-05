@@ -1,1 +1,3 @@
-tmp
+test-kobo/**
+!test-kobo/.kobo/
+!test-kobo/.kobo/version

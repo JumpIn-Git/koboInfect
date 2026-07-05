@@ -9,70 +9,17 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
-	"charm.land/huh/v2"
-	"github.com/mholt/archives"
+	"github.com/manifoldco/promptui"
 	"github.com/pgaskin/koboutils/v2/kobo"
 	"github.com/woozymasta/tgz"
 )
 
 var Root string
+var Ctx, _ = context.WithTimeout(context.Background(), 5*time.Second)
 
 func main() {
-	path, err := SaveNm(true)
-	if err != nil {
-		panic(err)
-	}
-	file, err := os.Open(path)
-	if err != nil {
-		panic(err)
-	}
-	format := archives.CompressedArchive{
-		Compression: archives.Gz{},
-		Extraction:  archives.Tar{},
-	}
-	ctx := context.Background()
-	destinationDir := "./my-extracted-files"
-
-	// 4. Run the extraction loop
-	err = format.Extract(ctx, file, func(ctx context.Context, f archives.FileInfo) error {
-		// Construct the destination path on your local disk
-		outputPath := filepath.Join(destinationDir, f.NameInArchive)
-
-		// Handle Directories
-		if f.IsDir() {
-			return os.MkdirAll(outputPath, f.Mode())
-		}
-
-		// Ensure the parent directory exists (in case the tarball lists files before parent dirs)
-		if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
-			return err
-		}
-
-		// Open the file inside the archive stream
-		archiveFile, err := f.Open()
-		if err != nil {
-			return err
-		}
-		defer archiveFile.Close()
-
-		// Create the file on your local hard drive
-		localFile, err := os.OpenFile(outputPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, f.Mode())
-		if err != nil {
-			return err
-		}
-		defer localFile.Close()
-
-		// Stream the data straight from the archive to your disk
-		_, err = io.Copy(localFile, archiveFile)
-		return err
-	})
-
-	if err != nil {
-		panic(err)
-	}
-
-	os.Exit(0)
 	var nmConfigPath string
 	var nmFile os.FileInfo
 
@@ -136,42 +83,43 @@ func main() {
 		return
 	}
 
-	combined, err := os.MkdirTemp("", "combined*")
+	combined, err := os.MkdirTemp("", "combined*") // nm + kobo-update root
 	if err != nil {
 		log.Fatalf("failed to create temp directory for merging: %v", err)
 	}
 	defer os.RemoveAll(combined)
 
 	fmt.Println("unpacking NickelMenu...")
-	if err := ExtractTGZ(nmTmp, combined); err != nil {
+	if err := Extract(Ctx, TgzFormat, nmTmp, combined); err != nil {
 		log.Fatalf("nickelmenu unpack: %v", err)
 	}
 
-	fwTmp, err := os.CreateTemp("", "fw-*.tgz")
+	fmt.Println("downloading fw...")
+	fwTmp, err := saveArchive(updateUrl, "fw-*.zip", true) // kobo-update.zip
+	defer os.Remove(fwTmp)
+	kRoot, err := os.CreateTemp("", "KoboRoot-*.tgz")
 	if err != nil {
-		log.Fatalf("fw KoboRoot: %v", err)
+		log.Fatalf("failed to create temp file for fw root: %v", err)
 	}
-	defer os.Remove(fwTmp.Name())
+	defer kRoot.Close()
 
 	fmt.Println("extracting fw...")
-	if err := ExtractZipPrefixes(updateUrl, map[string]string{
+	if err := ExtractPrefix(Ctx, ZipFormat, fwTmp, Prefixes{
 		"upgrade/":        filepath.Join(Root, ".kobo", "upgrade"),
 		"manifest.md5sum": filepath.Join(Root, ".kobo", "manifest.md5sum"),
-		"KoboRoot.tgz":    fwTmp.Name(),
+		"KoboRoot.tgz":    kRoot.Name(),
 	}); err != nil {
-		fwTmp.Close()
-		log.Fatalf("fw extraction: %v", err)
+		log.Fatalf("failed to extract fw: %v", err)
 	}
-	fwTmp.Close()
 
-	fmt.Println("unpacking fw...")
-	if err := ExtractTGZ(fwTmp.Name(), combined); err != nil {
+	fmt.Println("extractng fw root...")
+	if err := Extract(Ctx, TgzFormat, kRoot.Name(), combined); err != nil {
 		log.Fatalf("fw unpack: %v", err)
 	}
 
-	targetArchive := filepath.Join(Root, ".kobo", "KoboRoot.tgz")
-	fmt.Printf("packing combined archive to %s...\n", targetArchive)
-	if err := tgz.Pack(combined, targetArchive); err != nil {
+	target := filepath.Join(Root, ".kobo", "KoboRoot.tgz")
+	fmt.Printf("packing combined archive to %s...\n", target)
+	if err := tgz.Pack(combined, target); err != nil {
 		log.Fatalf("pack combined: %v", err)
 	}
 
@@ -209,17 +157,17 @@ func GetKobo() (string, error) {
 
 	var root string
 	if len(kobos) < 1 {
-		return "", errors.New("No kobo's found.")
+		return "", errors.New("No kobo's found, are any mounted?")
 	} else if len(kobos) == 1 {
 		root = kobos[0]
 	} else {
-		err := huh.NewSelect[string]().
-			Title("Select a kobo:").
-			Options(huh.NewOptions(kobos...)...).
-			Value(&root).Run()
+		prompt := promptui.Select{Label: "Select a kobo", Items: kobos}
+		_, Root, err = prompt.Run()
+		print(Root)
 		if err != nil {
 			return "", err
 		}
+		os.Exit(0)
 	}
 	return root, nil
 }

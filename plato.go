@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 )
 
@@ -22,8 +23,14 @@ func GetPlato() error {
 		return fmt.Errorf("unexpected Plato release asset name: expected %q, got %q", expectedName, asset.Name)
 	}
 
+	src, err := saveArchive(asset.Url, "plato-*.zip", true)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(src)
+
 	fmt.Println("Extracting Plato")
-	if err := ExtractZip(asset.Url, "", filepath.Join(Root, ".adds", "plato")); err != nil {
+	if err := Extract(Ctx, ZipFormat, src, filepath.Join(Root, ".adds", "plato")); err != nil {
 		return fmt.Errorf("extracting plato: %w", err)
 	}
 	return nil
