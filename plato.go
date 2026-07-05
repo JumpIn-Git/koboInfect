@@ -12,9 +12,14 @@ func GetPlato() error {
 		return err
 	}
 
+	if len(release.Assets) == 0 {
+		return fmt.Errorf("no assets found in Plato release %s", release.TagName)
+	}
+
 	asset := &release.Assets[0]
-	if asset.Name != fmt.Sprintf("plato-%s.zip", release.TagName) {
-		return UnexpectedRelease
+	expectedName := fmt.Sprintf("plato-%s.zip", release.TagName)
+	if asset.Name != expectedName {
+		return fmt.Errorf("unexpected Plato release asset name: expected %q, got %q", expectedName, asset.Name)
 	}
 
 	fmt.Println("Extracting Plato")

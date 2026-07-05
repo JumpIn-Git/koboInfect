@@ -166,6 +166,7 @@ func Get(url string) (*http.Response, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
 		return nil, fmt.Errorf("response status for %s: %d", url, resp.StatusCode)
 	}
 	return resp, nil

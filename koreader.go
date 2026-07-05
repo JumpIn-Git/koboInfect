@@ -13,14 +13,15 @@ func GetKoreader() error {
 	}
 
 	var url string
+	expectedName := fmt.Sprintf("koreader-kobo-%s.zip", release.TagName)
 	for _, asset := range release.Assets {
-		if asset.Name == fmt.Sprintf("koreader-kobo-%s.zip", release.TagName) {
+		if asset.Name == expectedName {
 			url = asset.Url
 			break
 		}
 	}
 	if url == "" {
-		return UnexpectedRelease
+		return fmt.Errorf("could not find asset %q in koreader release %s", expectedName, release.TagName)
 	}
 
 	fmt.Println("Extracting koreader")
