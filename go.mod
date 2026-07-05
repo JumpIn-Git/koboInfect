@@ -6,7 +6,6 @@ require (
 	github.com/manifoldco/promptui v0.9.0
 	github.com/mholt/archives v0.1.5
 	github.com/pgaskin/koboutils/v2 v2.2.0
-	github.com/woozymasta/tgz v0.1.0
 )
 
 require (
@@ -26,9 +25,11 @@ require (
 	github.com/pierrec/lz4/v4 v4.1.22 // indirect
 	github.com/sorairolake/lzip-go v0.3.8 // indirect
 	github.com/spf13/afero v1.15.0 // indirect
+	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect
 	go4.org v0.0.0-20230225012048-214862532bf5 // indirect
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/text v0.29.0 // indirect
+	gopkg.in/ini.v1 v1.67.3 // indirect
 )

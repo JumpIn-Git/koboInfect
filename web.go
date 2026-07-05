@@ -2,24 +2,23 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 )
 
 var Client = http.Client{Timeout: 1 * time.Minute}
-var UnexpectedRelease = errors.New("unexpected release")
 
 type Asset struct {
 	Name string `json:"name"`
 	Url  string `json:"browser_download_url"`
 }
 type Release struct {
-	TagName string `json:"tag_name"`
-	Assets  []Asset
+	TagName string  `json:"tag_name"`
+	Assets  []Asset `json:"assets"`
 }
 
 func GetRelease(repo string) (*Release, error) {
@@ -31,46 +30,64 @@ func GetRelease(repo string) (*Release, error) {
 
 	var release Release
 	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-		return nil, fmt.Errorf("%s: failed to decode release: %w", repo, err)
+		return nil, fmt.Errorf("%s: decoding release: %w", repo, err)
 	}
 
 	return &release, nil
 }
 
-func saveArchive(url, path string, tmp bool) (string, error) {
-	var f *os.File
-	var err error
-	if !tmp {
-		f, err = os.Open(path)
-		if err != nil {
-			return "", err
-		}
-	} else {
-		f, err = os.CreateTemp("", path)
-		if err != nil {
-			return "", err
-		}
+func download(url, pattern string) (*os.File, error) {
+	f, err := os.CreateTemp("", pattern)
+	if err != nil {
+		return nil, err
 	}
-	defer f.Close()
 
 	resp, err := Get(url)
 	if err != nil {
 		os.Remove(f.Name())
-		return "", err
+		f.Close()
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if _, err := io.Copy(f, resp.Body); err != nil {
 		os.Remove(f.Name())
-		return "", fmt.Errorf("failed to save zip: %w", err)
+		f.Close()
+		return nil, fmt.Errorf("saving archive: %w", err)
 	}
-	return f.Name(), nil
+
+	if _, err := f.Seek(0, 0); err != nil {
+		os.Remove(f.Name())
+		f.Close()
+		return nil, err
+	}
+	return f, nil
+}
+
+func downloadTo(url, path string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return err
+	}
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	resp, err := Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	_, err = io.Copy(f, resp.Body)
+	return err
 }
 
 func Get(url string) (*http.Response, error) {
 	resp, err := Client.Get(url)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't download %s: %w", url, err)
+		return nil, fmt.Errorf("downloading %s: %w", url, err)
 	}
 
 	if resp.StatusCode != http.StatusOK {

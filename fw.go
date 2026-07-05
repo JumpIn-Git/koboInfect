@@ -14,7 +14,7 @@ func UpgradeCheck() (string, error) {
 	}
 	upgrade, err := kobo.CheckUpgrade(id, "kobo", version, serial)
 	if err != nil {
-		return "", fmt.Errorf("couldn't check for fw: %w", err)
+		return "", fmt.Errorf("firmware check: %w", err)
 	}
 	if !upgrade.UpgradeType.IsUpdate() {
 		return "", nil

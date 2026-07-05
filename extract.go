@@ -14,19 +14,14 @@ import (
 var TgzFormat = archives.CompressedArchive{
 	Compression: archives.Gz{},
 	Extraction:  archives.Tar{},
+	Archival:    archives.Tar{},
 }
 var ZipFormat = archives.Zip{}
 
-type Prefixes map[string]string // [prefix]folder
+type Prefixes map[string]string
 
-func extractFormat(ctx context.Context, format archives.Extractor, src string, getOut func(f archives.FileInfo) string) error {
-	file, err := os.Open(src)
-	if err != nil {
-		return fmt.Errorf("failed to open archive: %w", err)
-	}
-	defer file.Close()
-
-	err = format.Extract(ctx, file, func(ctx context.Context, f archives.FileInfo) error {
+func extractFormat(ctx context.Context, format archives.Extractor, r io.Reader, getOut func(f archives.FileInfo) string) error {
+	err := format.Extract(ctx, r, func(ctx context.Context, f archives.FileInfo) error {
 		out := getOut(f)
 		if out == "" {
 			return nil
@@ -55,20 +50,19 @@ func extractFormat(ctx context.Context, format archives.Extractor, src string, g
 		return err
 	})
 	if err != nil {
-		return fmt.Errorf("failed to extract archive: %w", err)
+		return fmt.Errorf("extracting archive: %w", err)
 	}
 	return nil
 }
 
-func Extract(ctx context.Context, format archives.Extractor, src, dst string) error {
-	return extractFormat(ctx, format, src, func(f archives.FileInfo) string {
-		// No zip slip check for simplicity (trusted sources only)
+func Extract(ctx context.Context, format archives.Extractor, r io.Reader, dst string) error {
+	return extractFormat(ctx, format, r, func(f archives.FileInfo) string {
 		return filepath.Join(dst, f.NameInArchive)
 	})
 }
 
-func ExtractPrefix(ctx context.Context, format archives.Extractor, src string, prefixes Prefixes) error {
-	return extractFormat(ctx, format, src, func(f archives.FileInfo) string {
+func ExtractPrefix(ctx context.Context, format archives.Extractor, r io.Reader, prefixes Prefixes) error {
+	return extractFormat(ctx, format, r, func(f archives.FileInfo) string {
 		var out string
 		for prefix, folder := range prefixes {
 			if !strings.HasPrefix(f.NameInArchive, prefix) {
