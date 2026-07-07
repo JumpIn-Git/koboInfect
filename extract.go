@@ -11,12 +11,12 @@ import (
 	"github.com/mholt/archives"
 )
 
-var TgzFormat = archives.CompressedArchive{
+var Tgz = archives.CompressedArchive{
 	Compression: archives.Gz{},
 	Extraction:  archives.Tar{},
 	Archival:    archives.Tar{},
 }
-var ZipFormat = archives.Zip{}
+var Zip = archives.Zip{}
 
 type Prefixes map[string]string
 

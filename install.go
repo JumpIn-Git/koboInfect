@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 )
 
 func installRelease(name, repo, assetPattern, dest string) error {
@@ -35,5 +36,13 @@ func installRelease(name, repo, assetPattern, dest string) error {
 	defer f.Close()
 	defer os.Remove(f.Name())
 
-	return Extract(Ctx, ZipFormat, f, dest)
+	return Extract(Ctx, Zip, f, dest)
+}
+
+func GetKoreader() error {
+	return installRelease("KOReader", "koreader/koreader", "koreader-kobo-%s.zip", filepath.Join(Root, ".adds", "koreader"))
+}
+
+func GetPlato() error {
+	return installRelease("Plato", "baskerville/plato", "plato-%s.zip", filepath.Join(Root, ".adds", "plato"))
 }
