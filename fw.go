@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/manifoldco/promptui"
+	"github.com/charmbracelet/huh"
 	"github.com/pgaskin/koboutils/v2/kobo"
 )
 
@@ -20,12 +20,13 @@ func UpgradeCheck() (string, error) {
 		return "", nil
 	}
 
-	prompt := promptui.Select{Label: fmt.Sprintf("Update is %s, update?", upgrade.UpgradeType), Items: []string{"yes", "no"}}
-	_, s, err := prompt.Run()
-	if err != nil {
+	proceed := false
+	confirm := huh.NewConfirm().
+		Title(fmt.Sprintf("Update is %s, update?", upgrade.UpgradeType)).
+		Value(&proceed)
+	if err := confirm.Run(); err != nil {
 		return "", err
 	}
-	proceed := s == "yes"
 	if !proceed {
 		return "", nil
 	}

@@ -58,11 +58,11 @@ func run() int {
 		}
 	}
 
-	if err := GetPlato(); err != nil {
+	if err := GetPlato(Ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "plato: %v\n", err)
 		return 1
 	}
-	if err := GetKoreader(); err != nil {
+	if err := GetKoreader(Ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "koreader: %v\n", err)
 		return 1
 	}

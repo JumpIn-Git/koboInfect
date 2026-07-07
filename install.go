@@ -1,12 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 )
 
-func installRelease(name, repo, assetPattern, dest string) error {
+func installRelease(ctx context.Context, name, repo, assetPattern string, saveFunc func(ctx context.Context, f *os.File) error) error {
 	fmt.Printf("Getting %s release...\n", name)
 	release, err := GetRelease(repo)
 	if err != nil {
@@ -36,13 +37,19 @@ func installRelease(name, repo, assetPattern, dest string) error {
 	defer f.Close()
 	defer os.Remove(f.Name())
 
-	return Extract(Ctx, Zip, f, dest)
+	return saveFunc(ctx, f)
 }
 
-func GetKoreader() error {
-	return installRelease("KOReader", "koreader/koreader", "koreader-kobo-%s.zip", filepath.Join(Root, ".adds", "koreader"))
+func GetKoreader(ctx context.Context) error {
+	return installRelease(ctx, "KOReader", "koreader/koreader", "koreader-kobo-%s.zip", func(ctx context.Context, f *os.File) error {
+		return ExtractPrefix(ctx, Zip, f, Prefixes{
+			"koreader/": filepath.Join(Root, ".adds", "koreader"), // Zip has koreader.png for KFmon
+		})
+	})
 }
 
-func GetPlato() error {
-	return installRelease("Plato", "baskerville/plato", "plato-%s.zip", filepath.Join(Root, ".adds", "plato"))
+func GetPlato(ctx context.Context) error {
+	return installRelease(ctx, "Plato", "baskerville/plato", "plato-%s.zip", func(ctx context.Context, f *os.File) error {
+		return Extract(ctx, Zip, f, filepath.Join(Root, ".adds", "plato"))
+	})
 }
