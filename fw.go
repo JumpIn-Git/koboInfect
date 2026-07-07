@@ -20,11 +20,11 @@ func UpgradeCheck() (string, error) {
 		return "", nil
 	}
 
-	proceed := false
-	confirm := huh.NewConfirm().
+	proceed := true
+	if err := huh.NewConfirm().
 		Title(fmt.Sprintf("Update is %s, update?", upgrade.UpgradeType)).
-		Value(&proceed)
-	if err := confirm.Run(); err != nil {
+		Value(&proceed).
+		Run(); err != nil {
 		return "", err
 	}
 	if !proceed {

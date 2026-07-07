@@ -9,7 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/manifoldco/promptui"
+	"github.com/charmbracelet/huh"
 	"github.com/mholt/archives"
 	"github.com/pgaskin/koboutils/v2/kobo"
 	"gopkg.in/ini.v1"
@@ -58,13 +58,31 @@ func run() int {
 		}
 	}
 
-	if err := GetPlato(Ctx); err != nil {
-		fmt.Fprintf(os.Stderr, "plato: %v\n", err)
+	var install []string
+	if err := huh.NewMultiSelect[string]().
+		Title("What to install? (space to toggle, enter to confirm)").
+		Options(
+			huh.NewOption("Plato", "plato"),
+			huh.NewOption("KOReader", "koreader"),
+		).
+		Value(&install).
+		Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "selection: %v\n", err)
 		return 1
 	}
-	if err := GetKoreader(Ctx); err != nil {
-		fmt.Fprintf(os.Stderr, "koreader: %v\n", err)
-		return 1
+	for _, s := range install {
+		switch s {
+		case "plato":
+			if err := GetPlato(Ctx); err != nil {
+				fmt.Fprintf(os.Stderr, "plato: %v\n", err)
+				return 1
+			}
+		case "koreader":
+			if err := GetKoreader(Ctx); err != nil {
+				fmt.Fprintf(os.Stderr, "koreader: %v\n", err)
+				return 1
+			}
+		}
 	}
 
 	fmt.Println("checking for fw update...")
@@ -170,10 +188,10 @@ func run() int {
 	}
 
 	target := filepath.Join(Root, ".kobo", "KoboRoot.tgz")
-	fmt.Printf("packing combined archive to %s...\n", target)
+	fmt.Printf("packing combined root to %s...\n", target)
 	f, err := os.Create(target)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "creating combined archive: %v\n", err)
+		fmt.Fprintf(os.Stderr, "creating combined root: %v\n", err)
 		return 1
 	}
 	defer f.Close()
@@ -224,14 +242,15 @@ func GetKobo() (string, error) {
 
 	var root string
 	if len(kobos) < 1 {
-		return "", errors.New("no Kobos found")
+		return "", errors.New("no Kobos found, are any mounted")
 	} else if len(kobos) == 1 {
 		root = kobos[0]
 	} else {
-		prompt := promptui.Select{Label: "Select a kobo", Items: kobos}
-		_, Root, err = prompt.Run()
-		print(Root)
-		if err != nil {
+		if err := huh.NewSelect[string]().
+			Title("Select a kobo").
+			Options(huh.NewOptions(kobos...)...).
+			Value(&Root).
+			Run(); err != nil {
 			return "", err
 		}
 		os.Exit(0)
