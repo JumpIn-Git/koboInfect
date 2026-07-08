@@ -10,7 +10,10 @@ import (
 )
 
 func optWrite(path, content string) error {
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0755)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+	if os.IsExist(err) {
+		return nil
+	}
 	if err != nil {
 		return err
 	}
@@ -21,22 +24,22 @@ func optWrite(path, content string) error {
 func copyFile(src, dst string) error {
 	in, err := os.Open(src)
 	if err != nil {
-		return fmt.Errorf("opening source %s: %w", src, err)
+		return fmt.Errorf("opening source %s: %w\n", src, err)
 	}
 	defer in.Close()
 
 	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
-		return fmt.Errorf("creating directory %s: %w", filepath.Dir(dst), err)
+		return fmt.Errorf("creating directory %s: %w\n", filepath.Dir(dst), err)
 	}
 
 	out, err := os.Create(dst)
 	if err != nil {
-		return fmt.Errorf("creating destination %s: %w", dst, err)
+		return fmt.Errorf("creating destination %s: %w\n", dst, err)
 	}
 	defer out.Close()
 
 	if _, err = io.Copy(out, in); err != nil {
-		return fmt.Errorf("copying content: %w", err)
+		return fmt.Errorf("copying content: %w\n", err)
 	}
 	return out.Close()
 }
@@ -45,18 +48,18 @@ func editConf(root string, sideload bool) error {
 	cfgPath := filepath.Join(root, ".kobo", "Kobo", "Kobo eReader.conf")
 	cfgBak := filepath.Join(root, ".kobo", "Kobo", "Kobo eReader.conf.bak")
 	if err := copyFile(cfgPath, cfgBak); err != nil {
-		return fmt.Errorf("backing up Kobo eReader.conf: %w", err)
+		return fmt.Errorf("backing up Kobo eReader.conf: %w\n", err)
 	}
 	cfg, err := ini.LoadSources(ini.LoadOptions{SpaceBeforeInlineComment: true}, cfgPath)
 	if err != nil {
-		return fmt.Errorf("opening Kobo eReader.conf: %w", err)
+		return fmt.Errorf("opening Kobo eReader.conf: %w\n", err)
 	}
 	cfg.Section("FeatureSettings").Key("ExcludeSyncFolders").SetValue(`(\\.(?!kobo|adobe).+|([^.][^/]*/)+\\..+)`)
 	if sideload {
 		cfg.Section("ApplicationPreferences").Key("SideloadedMode").SetValue("true")
 	}
 	if err := cfg.SaveTo(cfgPath); err != nil {
-		return fmt.Errorf("saving Kobo eReader.conf: %w", err)
+		return fmt.Errorf("saving Kobo eReader.conf: %w\n", err)
 	}
 	return nil
 }
@@ -64,9 +67,9 @@ func editConf(root string, sideload bool) error {
 func copyNm(root string, path string) error {
 	if path != "" {
 		if nmFile, err := os.Stat(path); err != nil {
-			return fmt.Errorf("checking NickelMenu config: %w", err)
+			return fmt.Errorf("checking NickelMenu config: %w\n", err)
 		} else if err := copyFile(path, filepath.Join(root, ".adds", "nm", nmFile.Name())); err != nil {
-			return fmt.Errorf("copying NickelMenu config: %w", err)
+			return fmt.Errorf("copying NickelMenu config: %w\n", err)
 		}
 	}
 	return nil

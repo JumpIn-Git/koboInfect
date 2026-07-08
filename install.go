@@ -15,7 +15,7 @@ func installRelease(ctx context.Context, name, repo, assetPattern string, saveFu
 		return err
 	}
 	if len(release.Assets) == 0 {
-		return fmt.Errorf("no assets in %s release %s", repo, release.TagName)
+		return fmt.Errorf("no assets in %s release %s\n", repo, release.TagName)
 	}
 
 	assetName := assetPattern
@@ -30,14 +30,14 @@ func installRelease(ctx context.Context, name, repo, assetPattern string, saveFu
 		}
 	}
 	if url == "" {
-		return fmt.Errorf("asset %q not found in %s release %s", assetName, repo, release.TagName)
+		return fmt.Errorf("asset %q not found in %s release %s\n", assetName, repo, release.TagName)
 	}
 
 	return saveFunc(ctx, url)
 }
 
 func GetKoreader(ctx context.Context, root string) error {
-	return installRelease(ctx, "KOReader", "koreader/koreader", "koreader-kobo-%s.zip", func(ctx context.Context, url string) error {
+	err := installRelease(ctx, "KOReader", "koreader/koreader", "koreader-kobo-%s.zip", func(ctx context.Context, url string) error {
 		f, err := download(url, "koreader-kobo-*.zip", "KOReader")
 		if err != nil {
 			return err
@@ -48,10 +48,19 @@ func GetKoreader(ctx context.Context, root string) error {
 			"koreader/": filepath.Join(root, ".adds", "koreader"),
 		})
 	})
+	if err != nil {
+		return err
+	}
+
+	if err := optWrite(filepath.Join(root, ".adds", "nm", "koreader"),
+		`menu_item : main : KOReader : cmd_spawn : quiet : exec /mnt/onboard/.adds/koreader/koreader.sh`); err != nil {
+		return fmt.Errorf("failed to write to .adds/nm/koreader: %w\n", err)
+	}
+	return nil
 }
 
 func GetPlato(ctx context.Context, root string) error {
-	return installRelease(ctx, "Plato", "baskerville/plato", "plato-%s.zip", func(ctx context.Context, url string) error {
+	err := installRelease(ctx, "Plato", "baskerville/plato", "plato-%s.zip", func(ctx context.Context, url string) error {
 		f, err := download(url, "plato-*.zip", "Plato")
 		if err != nil {
 			return err
@@ -60,6 +69,15 @@ func GetPlato(ctx context.Context, root string) error {
 		defer os.Remove(f.Name())
 		return Extract(ctx, Zip, f, filepath.Join(root, ".adds", "plato"))
 	})
+	if err != nil {
+		return err
+	}
+
+	if err := optWrite(filepath.Join(root, ".adds", "nm", "plato"),
+		`menu_item : main : Plato : cmd_spawn : quiet : exec /mnt/onboard/.adds/plato/plato.sh`); err != nil {
+		return fmt.Errorf("failed to write to .adds/nm/plato: %w\n", err)
+	}
+	return nil
 }
 
 func GetNM(ctx context.Context, merge bool, root string) (*os.File, error) {

@@ -51,7 +51,7 @@ func extractFormat(ctx context.Context, format archives.Extractor, r io.Reader, 
 		return err
 	})
 	if err != nil {
-		return fmt.Errorf("extracting archive: %w", err)
+		return fmt.Errorf("extracting archive: %w\n", err)
 	}
 	return nil
 }
@@ -106,3 +106,5 @@ func (pf *progressFile) ReadAt(p []byte, off int64) (int, error) {
 	}
 	return n, err
 }
+
+

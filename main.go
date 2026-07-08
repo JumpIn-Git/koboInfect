@@ -16,7 +16,7 @@ import (
 func main() {
 	ctx := context.Background()
 	if err := run(ctx); err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		fmt.Fprint(os.Stderr, err)
 		os.Exit(1)
 	}
 }
@@ -32,11 +32,11 @@ func run(ctx context.Context) error {
 		var err error
 		root, err = GetKobo()
 		if err != nil {
-			return fmt.Errorf("finding Kobos: %w", err)
+			return fmt.Errorf("finding Kobos: %w\n", err)
 		}
 	} else {
 		if !kobo.IsKobo(root) {
-			return fmt.Errorf("%s doesn't seem to be a Kobo root", root)
+			return fmt.Errorf("%s doesn't seem to be a Kobo root\n", root)
 		}
 	}
 
@@ -49,40 +49,31 @@ func run(ctx context.Context) error {
 
 	install, err := selectAddons()
 	if err != nil {
-		return fmt.Errorf("selection: %w", err)
+		return fmt.Errorf("selection: %w\n", err)
 	}
 	if err := os.MkdirAll(filepath.Join(root, ".adds", "nm"), 0755); err != nil {
-		return fmt.Errorf("failed to make .adds/nm: %w", err)
+		return fmt.Errorf("failed to make .adds/nm: %w\n", err)
 	}
 	if slices.Contains(install, "Plato") {
 		if err := GetPlato(ctx, root); err != nil {
-			return fmt.Errorf("plato: %w", err)
-		}
-		if err := optWrite(filepath.Join(root, ".adds", "nm", "plato"),
-			`menu_item : main : Plato : cmd_spawn : quiet : exec /mnt/onboard/.adds/plato/plato.sh`); err != nil {
-			return fmt.Errorf("failed to write to .adds/nm/plato: %w", err)
+			return fmt.Errorf("plato: %w\n", err)
 		}
 	}
 	if slices.Contains(install, "KOReader") {
 		if err := GetKoreader(ctx, root); err != nil {
-			return fmt.Errorf("koreader: %w", err)
-		}
-		if err := optWrite(filepath.Join(root, ".adds", "nm", "koreader"),
-			`menu_item : main : KOReader : cmd_spawn : quiet : exec /mnt/onboard/.adds/koreader/koreader.sh`); err != nil {
-			return fmt.Errorf("failed to write to .adds/nm/koreader: %w", err)
+			return fmt.Errorf("koreader: %w\n", err)
 		}
 	}
 
 	return handleFirmware(ctx, root)
 }
 
-func GetKobo() (string, error) {
+func GetKobo() (root string, err error) {
 	kobos, err := kobo.Find()
 	if err != nil {
 		return "", err
 	}
 
-	var root string
 	if len(kobos) < 1 {
 		return "", errors.New("no Kobos found, are any mounted?")
 	} else if len(kobos) == 1 {
@@ -98,9 +89,8 @@ func GetKobo() (string, error) {
 	return root, nil
 }
 
-func selectAddons() ([]string, error) {
-	var install []string
-	err := huh.NewMultiSelect[string]().
+func selectAddons() (install []string, err error) {
+	err = huh.NewMultiSelect[string]().
 		Title("What to install? (space to toggle)").
 		Options(huh.NewOptions("Plato", "KOReader")...).
 		Value(&install).Run()
