@@ -1,6 +1,7 @@
 # koboInfect
 
 User friendly CLI to infect Kobo eReaders (inspired by nixos-infect) with Plato, KOReader and NickelMenu. Also provides firmware updates using kobo's API. 
+test-kobo/ has a fake kobo root, might be usefull to other devs.
 
 ## Usage
 
