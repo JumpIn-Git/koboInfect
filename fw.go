@@ -14,7 +14,7 @@ func UpgradeCheck() (string, error) {
 	}
 	upgrade, err := kobo.CheckUpgrade(id, "kobo", version, serial)
 	if err != nil {
-		return "", fmt.Errorf("firmware check: %w", err)
+		return "", err
 	}
 	if !upgrade.UpgradeType.IsUpdate() {
 		return "", nil
@@ -23,8 +23,7 @@ func UpgradeCheck() (string, error) {
 	proceed := true
 	if err := huh.NewConfirm().
 		Title(fmt.Sprintf("Update is %s, update?", upgrade.UpgradeType)).
-		Value(&proceed).
-		Run(); err != nil {
+		Value(&proceed).Run(); err != nil {
 		return "", err
 	}
 	if !proceed {

@@ -24,7 +24,6 @@ func main() {
 
 func run() int {
 	var nmConfigPath string
-	var nmFile os.FileInfo
 	var sideloadMode bool
 
 	flag.StringVar(&Root, "kobo", "", "Path to the Kobo root")
@@ -33,15 +32,36 @@ func run() int {
 	flag.Parse()
 
 	if nmConfigPath != "" {
-		var err error
-		if nmFile, err = os.Stat(nmConfigPath); err != nil {
+		if nmFile, err := os.Stat(nmConfigPath); err != nil {
 			if os.IsNotExist(err) {
 				fmt.Fprintf(os.Stderr, "NickelMenu config file does not exist: %s\n", nmConfigPath)
 				return 1
 			}
 			fmt.Fprintf(os.Stderr, "checking NickelMenu config: %v\n", err)
 			return 1
+		} else if err := copyFile(nmConfigPath, filepath.Join(Root, ".adds", "nm", nmFile.Name())); err != nil {
+			fmt.Fprintf(os.Stderr, "copying NickelMenu config: %v\n", err)
+			return 1
 		}
+	}
+	cfgPath := filepath.Join(Root, ".kobo", "Kobo", "Kobo eReader.conf")
+	cfgBak := filepath.Join(Root, ".kobo", "Kobo", "Kobo eReader.conf.bak")
+	if err := copyFile(cfgPath, cfgBak); err != nil {
+		fmt.Fprintf(os.Stderr, "backing up Kobo eReader.conf: %v\n", err)
+		return 1
+	}
+	cfg, err := ini.LoadSources(ini.LoadOptions{SpaceBeforeInlineComment: true}, cfgPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "opening Kobo eReader.conf: %v\n", err)
+		return 1
+	}
+	cfg.Section("FeatureSettings").Key("ExcludeSyncFolders").SetValue(`(\\.(?!kobo|adobe).+|([^.][^/]*/)+\\..+)`)
+	if sideloadMode {
+		cfg.Section("ApplicationPreferences").Key("SideloadedMode").SetValue("true")
+	}
+	if err := cfg.SaveTo(cfgPath); err != nil {
+		fmt.Fprintf(os.Stderr, "saving Kobo eReader.conf: %v\n", err)
+		return 1
 	}
 
 	if Root == "" {
@@ -53,7 +73,7 @@ func run() int {
 		}
 	} else {
 		if !kobo.IsKobo(Root) {
-			fmt.Fprintln(os.Stderr, "not a Kobo root")
+			fmt.Fprintf(os.Stderr, "%s doesn't seem to be a Kobo root\n", Root)
 			return 1
 		}
 	}
@@ -61,23 +81,19 @@ func run() int {
 	var install []string
 	if err := huh.NewMultiSelect[string]().
 		Title("What to install? (space to toggle, enter to confirm)").
-		Options(
-			huh.NewOption("Plato", "plato"),
-			huh.NewOption("KOReader", "koreader"),
-		).
-		Value(&install).
-		Run(); err != nil {
+		Options(huh.NewOptions([]string{"Plato", "KOReader"}...)...).
+		Value(&install).Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "selection: %v\n", err)
 		return 1
 	}
 	for _, s := range install {
 		switch s {
-		case "plato":
+		case "Plato":
 			if err := GetPlato(Ctx); err != nil {
 				fmt.Fprintf(os.Stderr, "plato: %v\n", err)
 				return 1
 			}
-		case "koreader":
+		case "KOReader":
 			if err := GetKoreader(Ctx); err != nil {
 				fmt.Fprintf(os.Stderr, "koreader: %v\n", err)
 				return 1
@@ -85,49 +101,23 @@ func run() int {
 		}
 	}
 
-	fmt.Println("checking for fw update...")
+	fmt.Println("checking for firmware upgrade...")
 	updateUrl, err := UpgradeCheck()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "fw: %v\n", err)
+		fmt.Fprintf(os.Stderr, "firmware check: %v\n", err)
 		return 1
 	}
 
 	upgrading := updateUrl != ""
 
-	nmArchive, err := SaveNm(upgrading)
+	nmArchive, err := GetNM(upgrading)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "nickelmenu: %v\n", err)
+		fmt.Fprintf(os.Stderr, "saving NickelMenu: %v\n", err)
 		return 1
 	}
 	if nmArchive != nil {
 		defer nmArchive.Close()
 		defer os.Remove(nmArchive.Name())
-	}
-
-	if nmConfigPath != "" {
-		if err := copyFile(nmConfigPath, filepath.Join(Root, ".adds", "nm", nmFile.Name())); err != nil {
-			fmt.Fprintf(os.Stderr, "copying nm config: %v\n", err)
-			return 1
-		}
-	}
-	cfgPath := filepath.Join(Root, ".kobo", "Kobo", "Kobo eReader.conf")
-	cfgBak := filepath.Join(Root, ".kobo", "Kobo", "Kobo eReader.conf.bak")
-	if err := copyFile(cfgPath, cfgBak); err != nil {
-		fmt.Fprintf(os.Stderr, "backing up .conf: %v\n", err)
-		return 1
-	}
-	cfg, err := ini.LoadSources(ini.LoadOptions{SpaceBeforeInlineComment: true}, cfgPath)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "opening .conf: %v\n", err)
-		return 1
-	}
-	cfg.Section("FeatureSettings").Key("ExcludeSyncFolders").SetValue(`(\\.(?!kobo|adobe).+|([^.][^/]*/)+\\..+)`)
-	if sideloadMode {
-		cfg.Section("ApplicationPreferences").Key("SideloadedMode").SetValue("true")
-	}
-	if err := cfg.SaveTo(cfgPath); err != nil {
-		fmt.Fprintf(os.Stderr, "saving .conf: %v\n", err)
-		return 1
 	}
 
 	if !upgrading {
@@ -137,18 +127,18 @@ func run() int {
 
 	combined, err := os.MkdirTemp("", "combined*")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "creating temp directory: %v\n", err)
+		fmt.Fprintf(os.Stderr, "creating combined firmware root dir: %v\n", err)
 		return 1
 	}
 	defer os.RemoveAll(combined)
 
 	fmt.Println("unpacking NickelMenu...")
 	if err := Extract(Ctx, Tgz, nmArchive, combined); err != nil {
-		fmt.Fprintf(os.Stderr, "nickelmenu unpack: %v\n", err)
+		fmt.Fprintf(os.Stderr, "NickelMenu unpack: %v\n", err)
 		return 1
 	}
 
-	fmt.Println("downloading fw...")
+	fmt.Println("downloading firmware...")
 	fwFile, err := download(updateUrl, "fw-*.zip")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "downloading firmware: %v\n", err)
@@ -159,7 +149,7 @@ func run() int {
 
 	kRoot, err := os.CreateTemp("", "KoboRoot-*.tgz")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "creating temp fw root: %v\n", err)
+		fmt.Fprintf(os.Stderr, "creating temp firmware root: %v\n", err)
 		return 1
 	}
 	defer kRoot.Close()
@@ -171,19 +161,19 @@ func run() int {
 		"manifest.md5sum": filepath.Join(Root, ".kobo", "manifest.md5sum"),
 		"KoboRoot.tgz":    kRoot.Name(),
 	}); err != nil {
-		fmt.Fprintf(os.Stderr, "extracting fw: %v\n", err)
+		fmt.Fprintf(os.Stderr, "extracting firmware: %v\n", err)
 		return 1
 	}
 
-	fmt.Println("extracting fw root...")
+	fmt.Println("extracting firmware root...")
 	kr, err := os.Open(kRoot.Name())
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "opening fw root: %v\n", err)
+		fmt.Fprintf(os.Stderr, "opening firmware root: %v\n", err)
 		return 1
 	}
 	defer kr.Close()
 	if err := Extract(Ctx, Tgz, kr, combined); err != nil {
-		fmt.Fprintf(os.Stderr, "fw unpack: %v\n", err)
+		fmt.Fprintf(os.Stderr, "firmware root unpack: %v\n", err)
 		return 1
 	}
 
@@ -199,7 +189,7 @@ func run() int {
 		combined + string(filepath.Separator): ".",
 	})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "gathering files: %v\n", err)
+		fmt.Fprintf(os.Stderr, "gathering firmware root files: %v\n", err)
 		return 1
 	}
 	if err := Tgz.Archive(Ctx, f, files); err != nil {
@@ -249,8 +239,7 @@ func GetKobo() (string, error) {
 		if err := huh.NewSelect[string]().
 			Title("Select a kobo").
 			Options(huh.NewOptions(kobos...)...).
-			Value(&Root).
-			Run(); err != nil {
+			Value(&Root).Run(); err != nil {
 			return "", err
 		}
 		os.Exit(0)
