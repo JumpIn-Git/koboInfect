@@ -1,50 +1,28 @@
-name: Go
-
+name: Build release
 on:
   push:
-    branches: ["main"]
-    tags: ["v*"]
-  pull_request:
-    branches: ["main"]
+    tags:
+      - "*"
 
 permissions:
   contents: write
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-
-      - name: Build
-        run: go build -v ./...
-
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
 
-      - name: Cross-compile
-        run: |
-          mkdir -p dist
-          GOOS=linux   GOARCH=amd64 go build -o dist/koboInfect-linux-amd64   -v .
-          GOOS=linux   GOARCH=arm64 go build -o dist/koboInfect-linux-arm64   -v .
-          GOOS=darwin  GOARCH=amd64 go build -o dist/koboInfect-darwin-amd64  -v .
-          GOOS=darwin  GOARCH=arm64 go build -o dist/koboInfect-darwin-arm64  -v .
-          GOOS=windows GOARCH=amd64 go build -o dist/koboInfect-windows-amd64.exe -v .
-
-      - name: Upload release assets
-        uses: softprops/action-gh-release@v2
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v7
         with:
-          files: dist/*
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
