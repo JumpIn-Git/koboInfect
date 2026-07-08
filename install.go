@@ -36,7 +36,7 @@ func installRelease(ctx context.Context, name, repo, assetPattern string, saveFu
 	return saveFunc(ctx, url)
 }
 
-func GetKoreader(ctx context.Context) error {
+func GetKoreader(ctx context.Context, root string) error {
 	return installRelease(ctx, "KOReader", "koreader/koreader", "koreader-kobo-%s.zip", func(ctx context.Context, url string) error {
 		f, err := download(url, "koreader-kobo-*.zip", "KOReader")
 		if err != nil {
@@ -45,12 +45,12 @@ func GetKoreader(ctx context.Context) error {
 		defer f.Close()
 		defer os.Remove(f.Name())
 		return ExtractPrefix(ctx, Zip, f, Prefixes{
-			"koreader/": filepath.Join(Root, ".adds", "koreader"),
+			"koreader/": filepath.Join(root, ".adds", "koreader"),
 		})
 	})
 }
 
-func GetPlato(ctx context.Context) error {
+func GetPlato(ctx context.Context, root string) error {
 	return installRelease(ctx, "Plato", "baskerville/plato", "plato-%s.zip", func(ctx context.Context, url string) error {
 		f, err := download(url, "plato-*.zip", "Plato")
 		if err != nil {
@@ -58,15 +58,15 @@ func GetPlato(ctx context.Context) error {
 		}
 		defer f.Close()
 		defer os.Remove(f.Name())
-		return Extract(ctx, Zip, f, filepath.Join(Root, ".adds", "plato"))
+		return Extract(ctx, Zip, f, filepath.Join(root, ".adds", "plato"))
 	})
 }
 
-func GetNM(ctx context.Context, merge bool) (*os.File, error) {
+func GetNM(ctx context.Context, merge bool, root string) (*os.File, error) {
 	var out *os.File
 	err := installRelease(ctx, "NickelMenu", "pgaskin/nickelmenu", "KoboRoot.tgz", func(ctx context.Context, url string) error {
 		if !merge {
-			return downloadTo(url, filepath.Join(Root, ".kobo", "KoboRoot.tgz"), "NickelMenu")
+			return downloadTo(url, filepath.Join(root, ".kobo", "KoboRoot.tgz"), "NickelMenu")
 		}
 		var err error
 		out, err = download(url, "nm-*.tgz", "NickelMenu")

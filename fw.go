@@ -7,8 +7,8 @@ import (
 	"github.com/pgaskin/koboutils/v2/kobo"
 )
 
-func UpgradeCheck() (string, error) {
-	serial, version, id, err := kobo.ParseKoboVersion(Root)
+func UpgradeCheck(root string) (string, error) {
+	serial, version, id, err := kobo.ParseKoboVersion(root)
 	if err != nil {
 		return "", err
 	}

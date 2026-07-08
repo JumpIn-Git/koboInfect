@@ -41,32 +41,32 @@ func copyFile(src, dst string) error {
 	return out.Close()
 }
 
-func editConf(sideload bool) error {
-	cfgPath := filepath.Join(Root, ".kobo", "Kobo", "Kobo eReader.conf")
-	cfgBak := filepath.Join(Root, ".kobo", "Kobo", "Kobo eReader.conf.bak")
+func editConf(root string, sideload bool) error {
+	cfgPath := filepath.Join(root, ".kobo", "Kobo", "Kobo eReader.conf")
+	cfgBak := filepath.Join(root, ".kobo", "Kobo", "Kobo eReader.conf.bak")
 	if err := copyFile(cfgPath, cfgBak); err != nil {
-		return fmt.Errorf("backing up Kobo eReader.conf: %v\n", err)
+		return fmt.Errorf("backing up Kobo eReader.conf: %w", err)
 	}
 	cfg, err := ini.LoadSources(ini.LoadOptions{SpaceBeforeInlineComment: true}, cfgPath)
 	if err != nil {
-		return fmt.Errorf("opening Kobo eReader.conf: %v\n", err)
+		return fmt.Errorf("opening Kobo eReader.conf: %w", err)
 	}
 	cfg.Section("FeatureSettings").Key("ExcludeSyncFolders").SetValue(`(\\.(?!kobo|adobe).+|([^.][^/]*/)+\\..+)`)
 	if sideload {
 		cfg.Section("ApplicationPreferences").Key("SideloadedMode").SetValue("true")
 	}
 	if err := cfg.SaveTo(cfgPath); err != nil {
-		return fmt.Errorf("saving Kobo eReader.conf: %v\n", err)
+		return fmt.Errorf("saving Kobo eReader.conf: %w", err)
 	}
 	return nil
 }
 
-func copyNm(path string) error {
+func copyNm(root string, path string) error {
 	if path != "" {
 		if nmFile, err := os.Stat(path); err != nil {
-			return fmt.Errorf("checking NickelMenu config: %v\n", err)
-		} else if err := copyFile(path, filepath.Join(Root, ".adds", "nm", nmFile.Name())); err != nil {
-			return fmt.Errorf("copying NickelMenu config: %v\n", err)
+			return fmt.Errorf("checking NickelMenu config: %w", err)
+		} else if err := copyFile(path, filepath.Join(root, ".adds", "nm", nmFile.Name())); err != nil {
+			return fmt.Errorf("copying NickelMenu config: %w", err)
 		}
 	}
 	return nil
