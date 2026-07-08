@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/mholt/archives"
+	"github.com/schollz/progressbar/v3"
 )
 
 var Tgz = archives.CompressedArchive{
@@ -77,4 +78,31 @@ func ExtractPrefix(ctx context.Context, format archives.Extractor, r io.Reader, 
 		}
 		return out
 	})
+}
+
+func filesFromDir(ctx context.Context, dir string) ([]archives.FileInfo, error) {
+	return archives.FilesFromDisk(ctx, nil, map[string]string{
+		filepath.Clean(dir) + string(filepath.Separator): ".",
+	})
+}
+
+type progressFile struct {
+	*os.File
+	bar *progressbar.ProgressBar
+}
+
+func (pf *progressFile) Read(p []byte) (int, error) {
+	n, err := pf.File.Read(p)
+	if n > 0 {
+		_ = pf.bar.Add(n)
+	}
+	return n, err
+}
+
+func (pf *progressFile) ReadAt(p []byte, off int64) (int, error) {
+	n, err := pf.File.ReadAt(p, off)
+	if n > 0 {
+		_ = pf.bar.Add(n)
+	}
+	return n, err
 }

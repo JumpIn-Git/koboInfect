@@ -10,19 +10,19 @@ import (
 	"path/filepath"
 
 	"github.com/charmbracelet/huh"
-	"github.com/mholt/archives"
 	"github.com/pgaskin/koboutils/v2/kobo"
+	"github.com/schollz/progressbar/v3"
 	"gopkg.in/ini.v1"
 )
 
 var Root string
-var Ctx = context.Background()
 
 func main() {
-	os.Exit(run())
+	ctx := context.Background()
+	os.Exit(run(ctx))
 }
 
-func run() int {
+func run(ctx context.Context) int {
 	var nmConfigPath string
 	var sideloadMode bool
 
@@ -30,6 +30,20 @@ func run() int {
 	flag.StringVar(&nmConfigPath, "nm-config", "", "Path to a NickelMenu config to copy")
 	flag.BoolVar(&sideloadMode, "sideloadMode", false, "Enable sideload mode, no account needed (use after factory reset)")
 	flag.Parse()
+
+	if Root == "" {
+		var err error
+		Root, err = GetKobo()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "finding Kobos: %v\n", err)
+			return 1
+		}
+	} else {
+		if !kobo.IsKobo(Root) {
+			fmt.Fprintf(os.Stderr, "%s doesn't seem to be a Kobo root\n", Root)
+			return 1
+		}
+	}
 
 	if nmConfigPath != "" {
 		if nmFile, err := os.Stat(nmConfigPath); err != nil {
@@ -64,20 +78,6 @@ func run() int {
 		return 1
 	}
 
-	if Root == "" {
-		var err error
-		Root, err = GetKobo()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "finding Kobos: %v\n", err)
-			return 1
-		}
-	} else {
-		if !kobo.IsKobo(Root) {
-			fmt.Fprintf(os.Stderr, "%s doesn't seem to be a Kobo root\n", Root)
-			return 1
-		}
-	}
-
 	var install []string
 	if err := huh.NewMultiSelect[string]().
 		Title("What to install? (space to toggle, enter to confirm)").
@@ -89,12 +89,12 @@ func run() int {
 	for _, s := range install {
 		switch s {
 		case "Plato":
-			if err := GetPlato(Ctx); err != nil {
+			if err := GetPlato(ctx); err != nil {
 				fmt.Fprintf(os.Stderr, "plato: %v\n", err)
 				return 1
 			}
 		case "KOReader":
-			if err := GetKoreader(Ctx); err != nil {
+			if err := GetKoreader(ctx); err != nil {
 				fmt.Fprintf(os.Stderr, "koreader: %v\n", err)
 				return 1
 			}
@@ -110,7 +110,7 @@ func run() int {
 
 	upgrading := updateUrl != ""
 
-	nmArchive, err := GetNM(upgrading)
+	nmArchive, err := GetNM(ctx, upgrading)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "saving NickelMenu: %v\n", err)
 		return 1
@@ -133,13 +133,19 @@ func run() int {
 	defer os.RemoveAll(combined)
 
 	fmt.Println("unpacking NickelMenu...")
-	if err := Extract(Ctx, Tgz, nmArchive, combined); err != nil {
+	nmStat, err := nmArchive.Stat()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "statting NickelMenu: %v\n", err)
+		return 1
+	}
+	bar := progressbar.DefaultBytes(nmStat.Size(), "unpacking NickelMenu")
+	if err := Extract(ctx, Tgz, io.TeeReader(nmArchive, bar), combined); err != nil {
 		fmt.Fprintf(os.Stderr, "NickelMenu unpack: %v\n", err)
 		return 1
 	}
 
 	fmt.Println("downloading firmware...")
-	fwFile, err := download(updateUrl, "fw-*.zip")
+	fwFile, err := download(updateUrl, "fw-*.zip", "firmware")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "downloading firmware: %v\n", err)
 		return 1
@@ -156,7 +162,13 @@ func run() int {
 	defer os.Remove(kRoot.Name())
 
 	fmt.Println("extracting fw...")
-	if err := ExtractPrefix(Ctx, Zip, fwFile, Prefixes{
+	fwStat, err := fwFile.Stat()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "statting firmware: %v\n", err)
+		return 1
+	}
+	fwBar := progressbar.DefaultBytes(fwStat.Size(), "extracting firmware zip")
+	if err := ExtractPrefix(ctx, Zip, &progressFile{File: fwFile, bar: fwBar}, Prefixes{
 		"upgrade/":        filepath.Join(Root, ".kobo", "upgrade"),
 		"manifest.md5sum": filepath.Join(Root, ".kobo", "manifest.md5sum"),
 		"KoboRoot.tgz":    kRoot.Name(),
@@ -166,13 +178,17 @@ func run() int {
 	}
 
 	fmt.Println("extracting firmware root...")
-	kr, err := os.Open(kRoot.Name())
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "opening firmware root: %v\n", err)
+	if _, err := kRoot.Seek(0, 0); err != nil {
+		fmt.Fprintf(os.Stderr, "seeking firmware root: %v\n", err)
 		return 1
 	}
-	defer kr.Close()
-	if err := Extract(Ctx, Tgz, kr, combined); err != nil {
+	krStat, err := kRoot.Stat()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "statting firmware root: %v\n", err)
+		return 1
+	}
+	krBar := progressbar.DefaultBytes(krStat.Size(), "unpacking firmware root")
+	if err := Extract(ctx, Tgz, io.TeeReader(kRoot, krBar), combined); err != nil {
 		fmt.Fprintf(os.Stderr, "firmware root unpack: %v\n", err)
 		return 1
 	}
@@ -185,15 +201,19 @@ func run() int {
 		return 1
 	}
 	defer f.Close()
-	files, err := archives.FilesFromDisk(Ctx, nil, map[string]string{
-		combined + string(filepath.Separator): ".",
-	})
+	files, err := filesFromDir(ctx, combined)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "gathering firmware root files: %v\n", err)
 		return 1
 	}
-	if err := Tgz.Archive(Ctx, f, files); err != nil {
+	packBar := progressbar.DefaultBytes(-1, "packing combined root")
+	if err := Tgz.Archive(ctx, io.MultiWriter(f, packBar), files); err != nil {
 		fmt.Fprintf(os.Stderr, "pack combined: %v\n", err)
+		return 1
+	}
+
+	if err := f.Close(); err != nil {
+		fmt.Fprintf(os.Stderr, "finalizing combined root: %v\n", err)
 		return 1
 	}
 
@@ -221,7 +241,7 @@ func copyFile(src, dst string) error {
 	if _, err = io.Copy(out, in); err != nil {
 		return fmt.Errorf("copying content: %w", err)
 	}
-	return nil
+	return out.Close()
 }
 
 func GetKobo() (string, error) {
@@ -232,17 +252,16 @@ func GetKobo() (string, error) {
 
 	var root string
 	if len(kobos) < 1 {
-		return "", errors.New("no Kobos found, are any mounted")
+		return "", errors.New("no Kobos found, are any mounted?")
 	} else if len(kobos) == 1 {
 		root = kobos[0]
 	} else {
 		if err := huh.NewSelect[string]().
 			Title("Select a kobo").
 			Options(huh.NewOptions(kobos...)...).
-			Value(&Root).Run(); err != nil {
+			Value(&root).Run(); err != nil {
 			return "", err
 		}
-		os.Exit(0)
 	}
 	return root, nil
 }

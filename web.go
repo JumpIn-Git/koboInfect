@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/schollz/progressbar/v3"
 )
 
 var Client = http.Client{Timeout: 1 * time.Minute}
@@ -36,7 +38,7 @@ func GetRelease(repo string) (*Release, error) {
 	return &release, nil
 }
 
-func download(url, pattern string) (*os.File, error) {
+func download(url, pattern, name string) (*os.File, error) {
 	f, err := os.CreateTemp("", pattern)
 	if err != nil {
 		return nil, err
@@ -50,7 +52,12 @@ func download(url, pattern string) (*os.File, error) {
 	}
 	defer resp.Body.Close()
 
-	if _, err := io.Copy(f, resp.Body); err != nil {
+	bar := progressbar.DefaultBytes(
+		resp.ContentLength,
+		fmt.Sprintf("downloading %s", name),
+	)
+
+	if _, err := io.Copy(io.MultiWriter(f, bar), resp.Body); err != nil {
 		os.Remove(f.Name())
 		f.Close()
 		return nil, fmt.Errorf("saving archive: %w", err)
@@ -64,7 +71,13 @@ func download(url, pattern string) (*os.File, error) {
 	return f, nil
 }
 
-func downloadTo(url, path string) error {
+func downloadTo(url, path, name string) error {
+	resp, err := Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
 	}
@@ -74,14 +87,15 @@ func downloadTo(url, path string) error {
 	}
 	defer f.Close()
 
-	resp, err := Get(url)
-	if err != nil {
+	bar := progressbar.DefaultBytes(
+		resp.ContentLength,
+		fmt.Sprintf("downloading %s", name),
+	)
+
+	if _, err = io.Copy(io.MultiWriter(f, bar), resp.Body); err != nil {
 		return err
 	}
-	defer resp.Body.Close()
-
-	_, err = io.Copy(f, resp.Body)
-	return err
+	return f.Close()
 }
 
 func Get(url string) (*http.Response, error) {

@@ -38,7 +38,7 @@ func installRelease(ctx context.Context, name, repo, assetPattern string, saveFu
 
 func GetKoreader(ctx context.Context) error {
 	return installRelease(ctx, "KOReader", "koreader/koreader", "koreader-kobo-%s.zip", func(ctx context.Context, url string) error {
-		f, err := download(url, "koreader-kobo-*.zip")
+		f, err := download(url, "koreader-kobo-*.zip", "KOReader")
 		if err != nil {
 			return err
 		}
@@ -52,7 +52,7 @@ func GetKoreader(ctx context.Context) error {
 
 func GetPlato(ctx context.Context) error {
 	return installRelease(ctx, "Plato", "baskerville/plato", "plato-%s.zip", func(ctx context.Context, url string) error {
-		f, err := download(url, "plato-*.zip")
+		f, err := download(url, "plato-*.zip", "Plato")
 		if err != nil {
 			return err
 		}
@@ -62,14 +62,14 @@ func GetPlato(ctx context.Context) error {
 	})
 }
 
-func GetNM(merge bool) (*os.File, error) {
+func GetNM(ctx context.Context, merge bool) (*os.File, error) {
 	var out *os.File
-	err := installRelease(context.Background(), "NickelMenu", "pgaskin/nickelmenu", "KoboRoot.tgz", func(ctx context.Context, url string) error {
+	err := installRelease(ctx, "NickelMenu", "pgaskin/nickelmenu", "KoboRoot.tgz", func(ctx context.Context, url string) error {
 		if !merge {
-			return downloadTo(url, filepath.Join(Root, ".kobo", "KoboRoot.tgz"))
+			return downloadTo(url, filepath.Join(Root, ".kobo", "KoboRoot.tgz"), "NickelMenu")
 		}
 		var err error
-		out, err = download(url, "nm-*.tgz")
+		out, err = download(url, "nm-*.tgz", "NickelMenu")
 		return err
 	})
 	return out, err
