@@ -6,6 +6,7 @@ require (
 	github.com/charmbracelet/huh v1.0.0
 	github.com/mholt/archives v0.1.5
 	github.com/pgaskin/koboutils/v2 v2.2.1-0.20260707233952-c721410dfe51
+	github.com/schollz/progressbar/v3 v3.19.1
 	gopkg.in/ini.v1 v1.67.3
 )
 
@@ -48,7 +49,6 @@ require (
 	github.com/nwaples/rardecode/v2 v2.2.5 // indirect
 	github.com/pierrec/lz4/v4 v4.1.27 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
-	github.com/schollz/progressbar/v3 v3.19.1 // indirect
 	github.com/sorairolake/lzip-go v0.3.8 // indirect
 	github.com/spf13/afero v1.15.0 // indirect
 	github.com/stangelandcl/ppmd v0.1.1 // indirect
