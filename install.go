@@ -9,13 +9,13 @@ import (
 )
 
 func installRelease(ctx context.Context, name, repo, assetPattern string, saveFunc func(ctx context.Context, url string) error) error {
-	fmt.Printf("Getting %s release...\n", name)
+	fmt.Printf("Getting %s release...", name)
 	release, err := GetRelease(repo)
 	if err != nil {
 		return err
 	}
 	if len(release.Assets) == 0 {
-		return fmt.Errorf("no assets in %s release %s\n", repo, release.TagName)
+		return fmt.Errorf("no assets in %s release %s", repo, release.TagName)
 	}
 
 	assetName := assetPattern
@@ -30,7 +30,7 @@ func installRelease(ctx context.Context, name, repo, assetPattern string, saveFu
 		}
 	}
 	if url == "" {
-		return fmt.Errorf("asset %q not found in %s release %s\n", assetName, repo, release.TagName)
+		return fmt.Errorf("asset %q not found in %s release %s", assetName, repo, release.TagName)
 	}
 
 	return saveFunc(ctx, url)
@@ -54,7 +54,7 @@ func GetKoreader(ctx context.Context, root string) error {
 
 	if err := optWrite(filepath.Join(root, ".adds", "nm", "koreader"),
 		`menu_item : main : KOReader : cmd_spawn : quiet : exec /mnt/onboard/.adds/koreader/koreader.sh`); err != nil {
-		return fmt.Errorf("failed to write to .adds/nm/koreader: %w\n", err)
+		return fmt.Errorf("failed to write to .adds/nm/koreader: %w", err)
 	}
 	return nil
 }
@@ -75,7 +75,7 @@ func GetPlato(ctx context.Context, root string) error {
 
 	if err := optWrite(filepath.Join(root, ".adds", "nm", "plato"),
 		`menu_item : main : Plato : cmd_spawn : quiet : exec /mnt/onboard/.adds/plato/plato.sh`); err != nil {
-		return fmt.Errorf("failed to write to .adds/nm/plato: %w\n", err)
+		return fmt.Errorf("failed to write to .adds/nm/plato: %w", err)
 	}
 	return nil
 }

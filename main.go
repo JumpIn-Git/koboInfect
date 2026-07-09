@@ -16,7 +16,7 @@ import (
 func main() {
 	ctx := context.Background()
 	if err := run(ctx); err != nil {
-		fmt.Fprint(os.Stderr, err)
+		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
 }
@@ -32,16 +32,16 @@ func run(ctx context.Context) error {
 		var err error
 		root, err = GetKobo()
 		if err != nil {
-			return fmt.Errorf("finding Kobos: %w\n", err)
+			return fmt.Errorf("finding Kobos: %w", err)
 		}
 	} else {
 		if !kobo.IsKobo(root) {
-			return fmt.Errorf("%s doesn't seem to be a Kobo root\n", root)
+			return fmt.Errorf("%s doesn't seem to be a Kobo root", root)
 		}
 	}
 
 	if err := os.MkdirAll(filepath.Join(root, ".adds", "nm"), 0755); err != nil {
-		return fmt.Errorf("failed to make .adds/nm: %w\n", err)
+		return fmt.Errorf("failed to make .adds/nm: %w", err)
 	}
 	if err := copyNm(root, *nmConfigPath); err != nil {
 		return err
@@ -52,16 +52,16 @@ func run(ctx context.Context) error {
 
 	install, err := selectAddons()
 	if err != nil {
-		return fmt.Errorf("selection: %w\n", err)
+		return fmt.Errorf("selection: %w", err)
 	}
 	if slices.Contains(install, "Plato") {
 		if err := GetPlato(ctx, root); err != nil {
-			return fmt.Errorf("plato: %w\n", err)
+			return fmt.Errorf("plato: %w", err)
 		}
 	}
 	if slices.Contains(install, "KOReader") {
 		if err := GetKoreader(ctx, root); err != nil {
-			return fmt.Errorf("koreader: %w\n", err)
+			return fmt.Errorf("koreader: %w", err)
 		}
 	}
 
@@ -78,7 +78,7 @@ func GetKobo() (root string, err error) {
 		return "", errors.New("no Kobos found, are any mounted?")
 	} else if len(kobos) == 1 {
 		root = kobos[0]
-		fmt.Printf("Found %s!\n", root)
+		fmt.Printf("Found %s!", root)
 	} else {
 		if err := huh.NewSelect[string]().
 			Title("Select a kobo").

@@ -51,7 +51,7 @@ func extractFormat(ctx context.Context, format archives.Extractor, r io.Reader, 
 		return err
 	})
 	if err != nil {
-		return fmt.Errorf("extracting archive: %w\n", err)
+		return fmt.Errorf("extracting archive: %w", err)
 	}
 	return nil
 }
