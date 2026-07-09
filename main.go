@@ -40,6 +40,9 @@ func run(ctx context.Context) error {
 		}
 	}
 
+	if err := os.MkdirAll(filepath.Join(root, ".adds", "nm"), 0755); err != nil {
+		return fmt.Errorf("failed to make .adds/nm: %w\n", err)
+	}
 	if err := copyNm(root, *nmConfigPath); err != nil {
 		return err
 	}
@@ -50,9 +53,6 @@ func run(ctx context.Context) error {
 	install, err := selectAddons()
 	if err != nil {
 		return fmt.Errorf("selection: %w\n", err)
-	}
-	if err := os.MkdirAll(filepath.Join(root, ".adds", "nm"), 0755); err != nil {
-		return fmt.Errorf("failed to make .adds/nm: %w\n", err)
 	}
 	if slices.Contains(install, "Plato") {
 		if err := GetPlato(ctx, root); err != nil {
@@ -78,6 +78,7 @@ func GetKobo() (root string, err error) {
 		return "", errors.New("no Kobos found, are any mounted?")
 	} else if len(kobos) == 1 {
 		root = kobos[0]
+		fmt.Printf("Found %s!\n", root)
 	} else {
 		if err := huh.NewSelect[string]().
 			Title("Select a kobo").

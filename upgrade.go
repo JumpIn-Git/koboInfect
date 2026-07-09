@@ -98,7 +98,7 @@ func handleFirmware(ctx context.Context, root string) error {
 		return fmt.Errorf("gathering firmware root files: %w\n", err)
 	}
 
-	var n int
+	var n int64
 	var packBar *progressbar.ProgressBar
 	for i, fi := range files {
 		if !fi.IsDir() {
@@ -111,7 +111,8 @@ func handleFirmware(ctx context.Context, root string) error {
 			files[i] = fi
 		}
 	}
-	packBar = progressbar.Default(int64(n), "packing combined root")
+	packBar = progressbar.Default(n, "packing combined root")
+	progressbar.OptionSetItsString("files")(packBar)
 	if err := Tgz.Archive(ctx, res, files); err != nil {
 		return fmt.Errorf("pack combined: %w\n", err)
 	}
