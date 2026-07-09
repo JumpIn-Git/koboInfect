@@ -3,7 +3,16 @@
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
   };
 
-  outputs = {nixpkgs, ...}: {
-    packages.x86_64-linux.default = nixpkgs.legacyPackages.x86_64-linux.callPackage ./default.nix {};
+  outputs = {nixpkgs, ...}: let
+    forEachSystem = nixpkgs.lib.genAttrs [
+      "x86_64-linux"
+      "aarch64-linux"
+      "x86_64-darwin"
+      "aarch64-darwin"
+    ];
+  in {
+    packages = forEachSystem (system: {
+      default = nixpkgs.legacyPackages.${system}.callPackage ./default.nix {};
+    });
   };
 }
