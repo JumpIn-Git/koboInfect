@@ -1,4 +1,4 @@
-module github.com/JumpIn-Git/koboInfect
+module github.com/JumpIn-Git/kobo-infect
 
 go 1.26.4
 
