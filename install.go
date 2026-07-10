@@ -46,7 +46,12 @@ func GetKoreader(ctx context.Context, root string) error {
 		}
 		defer f.Close()
 		defer os.Remove(f.Name())
-		return ExtractPrefix(ctx, Zip, f, Prefixes{
+		stat, err := f.Stat()
+		if err != nil {
+			return err
+		}
+		bar := progressbar.DefaultBytes(stat.Size(), "extracting KOReader")
+		return ExtractPrefix(ctx, Zip, &progressFile{File: f, bar: bar}, Prefixes{
 			"koreader/": filepath.Join(root, ".adds", "koreader"),
 		})
 	})
@@ -70,11 +75,11 @@ func GetPlato(ctx context.Context, root string) error {
 		defer f.Close()
 		defer os.Remove(f.Name())
 
-		fStat, err := f.Stat()
+		stat, err := f.Stat()
 		if err != nil {
 			return err
 		}
-		bar := progressbar.DefaultBytes(fStat.Size(), "extracting Plato")
+		bar := progressbar.DefaultBytes(stat.Size(), "extracting Plato")
 		return Extract(ctx, Zip, &progressFile{File: f, bar: bar}, filepath.Join(root, ".adds", "plato"))
 	})
 	if err != nil {

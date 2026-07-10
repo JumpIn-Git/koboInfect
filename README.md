@@ -1,3 +1,6 @@
+> [!WARNING]
+> 
+> This tool currently semi-bricks your Kobo, WIP
 # kobo-infect
 
 User friendly CLI to infect Kobo eReaders (inspired by nixos-infect) with Plato, KOReader and NickelMenu. Also provides firmware updates using kobo's API. 
