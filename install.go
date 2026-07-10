@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/schollz/progressbar/v3"
 )
 
 func installRelease(ctx context.Context, name, repo, assetPattern string, saveFunc func(ctx context.Context, url string) error) error {
@@ -67,7 +69,13 @@ func GetPlato(ctx context.Context, root string) error {
 		}
 		defer f.Close()
 		defer os.Remove(f.Name())
-		return Extract(ctx, Zip, f, filepath.Join(root, ".adds", "plato"))
+
+		fStat, err := f.Stat()
+		if err != nil {
+			return err
+		}
+		bar := progressbar.DefaultBytes(fStat.Size(), "extracting Plato")
+		return Extract(ctx, Zip, &progressFile{File: f, bar: bar}, filepath.Join(root, ".adds", "plato"))
 	})
 	if err != nil {
 		return err
